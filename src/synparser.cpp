@@ -77,7 +77,7 @@ NodeList* factor(NodeList *nodes) {
 		nodes = nodes->next;
 	}
 	else {
-		//syntaxError("Unexpected factor");
+		syntaxError("Unexpected factor");
 	}
 	return nodes;
 }
