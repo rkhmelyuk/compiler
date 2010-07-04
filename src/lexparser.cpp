@@ -16,6 +16,7 @@
 char getc(Sym *s);
 void revokec(Sym *s);
 void lexerError(Sym *s, char *error);
+void writePos(Node *node, Sym *s);
 
 NodeList* parse(char *string) {
 
@@ -23,7 +24,8 @@ NodeList* parse(char *string) {
 	NodeList *nl = begin;
 
 	Sym *s = new Sym;
-
+	s->row = 1;
+	s->col = 0;
 	s->pos = 0;
 	s->string = string;
 
@@ -51,6 +53,7 @@ NodeList* parse(char *string) {
 			n->value[1] = 0;
 			n->nodeType = NODE_TYPE_PLUS;
 			nl->node = n;
+			writePos(n, s);
 			continue;
 		case '-':
 			n = new Node;
@@ -59,6 +62,7 @@ NodeList* parse(char *string) {
 			n->value[1] = 0;
 			n->nodeType = NODE_TYPE_MINUS;
 			nl->node = n;
+			writePos(n, s);
 			continue;
 		case '*':
 			n = new Node;
@@ -67,6 +71,7 @@ NodeList* parse(char *string) {
 			n->value[1] = 0;
 			n->nodeType = NODE_TYPE_MUL;
 			nl->node = n;
+			writePos(n, s);
 			continue;
 		case '/':
 			n = new Node;
@@ -75,6 +80,7 @@ NodeList* parse(char *string) {
 			n->value[1] = 0;
 			n->nodeType = NODE_TYPE_DIV;
 			nl->node = n;
+			writePos(n, s);
 			continue;
 		case '=':
 			n = new Node;
@@ -83,6 +89,7 @@ NodeList* parse(char *string) {
 			n->value[1] = 0;
 			n->nodeType = NODE_TYPE_EQUAL;
 			nl->node = n;
+			writePos(n, s);
 			continue;
 		case ';':
 			n = new Node;
@@ -91,6 +98,7 @@ NodeList* parse(char *string) {
 			n->value[1] = 0;
 			n->nodeType = NODE_TYPE_SEMICOLON;
 			nl->node = n;
+			writePos(n, s);
 			continue;
 		case '(':
 			n = new Node;
@@ -99,6 +107,7 @@ NodeList* parse(char *string) {
 			n->value[1] = 0;
 			n->nodeType = NODE_TYPE_LBRACE;
 			nl->node = n;
+			writePos(n, s);
 			continue;
 		case ')':
 			n = new Node;
@@ -107,12 +116,13 @@ NodeList* parse(char *string) {
 			n->value[1] = 0;
 			n->nodeType = NODE_TYPE_RBRACE;
 			nl->node = n;
+			writePos(n, s);
 			continue;
 		case '#':
 			c = getc(s);
 			if (c == '*') {
-				n =	new Node;
-				n->nodeType = NODE_TYPE_COMMENT;
+				//n =	new Node;
+				//n->nodeType = NODE_TYPE_COMMENT;
 				int commentStartPos = s->pos + 1;
 				do {
 					c = getc(s);
@@ -120,13 +130,14 @@ NodeList* parse(char *string) {
 						c = getc(s);
 						if (c == '#') {
 							// comment is closed!
-							n->value = (char*) malloc(s->pos - commentStartPos - 1);
-							strncpy(n->value, s->string + commentStartPos, s->pos - commentStartPos - 2);
+							//n->value = (char*) malloc(s->pos - commentStartPos - 1);
+							//strncpy(n->value, s->string + commentStartPos, s->pos - commentStartPos - 2);
 							break;
 						}
 					}
 				} while (c);
-				nl->node = n;
+				//nl->node = n;
+				//writePos(n, s);
 			}
 			else {
 				lexerError(s, "Unexpected symbol.");
@@ -148,6 +159,7 @@ NodeList* parse(char *string) {
 			} while (isdigit(c));
 			if (c) revokec(s);
 			nl->node = n;
+			writePos(n, s);
 		}
 		else if (isalpha(c)) {
 			n = new Node();
@@ -166,15 +178,34 @@ NodeList* parse(char *string) {
 			if (strcmp(n->value, "def") == 0) {
 				n->nodeType = NODE_TYPE_DEF;
 			}
+			else if (strcmp(n->value, "calculate") == 0) {
+				n->nodeType = NODE_TYPE_CALC;
+			}
 			else {
 				n->nodeType = NODE_TYPE_IDENTIFIER;
 			}
+			writePos(n, s);
 		}
 		else {
 			lexerError(s, "Unexpected symbol.");
 		}
 	}
+
+	nl->next = new NodeList;
+	nl->next->node = new Node;
+	nl->next->prev = nl;
+	nl = nl->next;
+	nl->node->nodeType = NODE_TYPE_EOF;
+	nl->node->value = "";
+	writePos(nl->node, s);
+
 	return begin;
+}
+
+void writePos(Node *node, Sym *s) {
+	node->position = new Position;
+	node->position->row = s->row;
+	node->position->column = s->col;
 }
 
 char getc(Sym *s) {
@@ -182,14 +213,21 @@ char getc(Sym *s) {
 	int pos = s->pos;
 	if (len > pos) {
 		char c = s->string[pos];
-		s->pos = pos + 1;
+		if (c == '\n') {
+			s->row++;
+			s->col = 0;
+		}
+		s->pos++;
+		s->col++;
+
 		return c;
 	}
 	return NULL;
 }
 
 void revokec(Sym *s) {
-	s->pos = s->pos - 1;
+	s->pos--;
+	s->col--;
 }
 
 void lexerError(Sym *s, char *error) {

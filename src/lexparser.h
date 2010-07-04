@@ -24,12 +24,20 @@ enum NodeType {
 	NODE_TYPE_COMMENT = 9,
 	NODE_TYPE_SEMICOLON = 10,
 	NODE_TYPE_EQUAL = 11,
-	NODE_TYPE_DEF = 12
+	NODE_TYPE_DEF = 12,
+	NODE_TYPE_CALC = 13,
+	NODE_TYPE_EOF = 14
+};
+
+struct Position {
+	int column;
+	int row;
 };
 
 struct Node {
 	NodeType nodeType;
 	char *value;
+	Position *position;
 };
 
 struct NodeList {
@@ -41,11 +49,14 @@ struct NodeList {
 struct Sym {
 	char *string;
 	int pos;
+	int row;
+	int col;
 };
 
 typedef Node 		Node;
 typedef NodeList 	NodeList;
 typedef Sym		Sym;
+typedef Position 	Position;
 
 /**
  * Parses the string into the list of nodes.
