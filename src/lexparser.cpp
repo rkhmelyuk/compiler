@@ -36,6 +36,7 @@ NodeList* parse(char *string) {
 
 		if (nl->node) {
 			nl->next = new NodeList;
+			nl->next->prev = nl;
 			nl = nl->next;
 			nl->next = NULL;
 			nl->node = NULL;

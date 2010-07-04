@@ -34,6 +34,7 @@ struct Node {
 
 struct NodeList {
 	Node *node;
+	NodeList *prev;
 	NodeList *next;
 };
 

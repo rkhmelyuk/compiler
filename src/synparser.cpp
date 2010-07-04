@@ -68,6 +68,7 @@ NodeList* factor(NodeList *nodes) {
 		nodes = nodes->next;
 	}
 	else if (nodes->node->nodeType == NODE_TYPE_LBRACE) {
+		nodes = nodes->next;
 		nodes = simpleTerm(nodes);
 		if (nodes->node->nodeType != NODE_TYPE_RBRACE) {
 			syntaxError("error in closing braces");
@@ -77,7 +78,8 @@ NodeList* factor(NodeList *nodes) {
 		nodes = nodes->next;
 	}
 	else {
-		syntaxError("Unexpected factor");
+		//syntaxError("Unexpected factor");
+		return nodes->prev;
 	}
 	return nodes;
 }
