@@ -30,9 +30,10 @@ void unexpected(Node *node) {
 	hasError = true;
 }
 
-void synparse(NodeList *nodes) {
-	NodeList *list = nodes;
-	while (list != NULL) {
+void parseNodes(NodeList *nodes)
+{
+    NodeList *list = nodes;
+    while (list != NULL) {
 		switch (list->node->nodeType) {
 			case NODE_TYPE_DEF:
 				list = definition(list);
@@ -40,6 +41,8 @@ void synparse(NodeList *nodes) {
 			case NODE_TYPE_CALC:
 				list = expression(list);
 				break;
+			case NODE_TYPE_EOF:
+				return;
 			default:
 				unexpected(list->node);
 		}
@@ -47,8 +50,12 @@ void synparse(NodeList *nodes) {
 			list = list->next;
 		}
 	}
+}
 
-	if (hasError) {
+void synparse(NodeList *nodes) {
+    parseNodes(nodes);
+
+    if (hasError) {
 		printf("COMPILATION FAILED\n");
 	}
 }
@@ -113,12 +120,9 @@ NodeList* term(NodeList *nodes) {
 }
 
 NodeList* factor(NodeList *nodes) {
-	if (nodes->node->nodeType == NODE_TYPE_IDENTIFIER) {
-		printf("found identifier %s\n", nodes->node->value);
-		nodes = nodes->next;
-	}
-	else if (nodes->node->nodeType == NODE_TYPE_NUMBER) {
-		printf("found number %s\n", nodes->node->value);
+	if (nodes->node->nodeType == NODE_TYPE_IDENTIFIER
+			|| nodes->node->nodeType == NODE_TYPE_NUMBER) {
+		printf("found literal %s\n", nodes->node->value);
 		nodes = nodes->next;
 	}
 	else if (nodes->node->nodeType == NODE_TYPE_LBRACE) {
