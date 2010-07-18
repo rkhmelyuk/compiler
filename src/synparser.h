@@ -12,6 +12,29 @@
 #include "lexparser.h"
 
 #define SYNTAX_ERROR 65
+#define null NULL
+
+enum ObjectType {
+	VARIABLE,
+	FUNCTION
+};
+
+struct DefObject {
+	char *name;
+	char *value;
+	ObjectType type;
+};
+
+struct DefObjectNode {
+	DefObject *obj;
+	DefObjectNode *next;
+};
+
+struct DefContext {
+	char *name;
+	DefObjectNode *first;
+	DefObjectNode *last;
+};
 
 extern void synparse(NodeList *nodes);
 

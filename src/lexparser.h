@@ -53,11 +53,6 @@ struct Sym {
 	int col;
 };
 
-typedef Node 		Node;
-typedef NodeList 	NodeList;
-typedef Sym		Sym;
-typedef Position 	Position;
-
 /**
  * Parses the string into the list of nodes.
  */

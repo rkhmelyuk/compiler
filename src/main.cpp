@@ -14,7 +14,10 @@
 int main(int argc, char** argv) {
 
 	printf("Lexical parser started\n");
-	NodeList *list = parse("def a = 12;\ncalculate a + #* this is great *# (23 * 45) + (a * (12 - 23)) + a + def (;\n def x = 23; ");
+	NodeList *list = parse(
+			"def a = 12;\n"
+			"def x = 3;\n"
+			"calculate a + #* this is great *# (23 * 45) + (a * (12 - 23)) + a * x;");
 	//
 
 	/*while (list && list->node) {

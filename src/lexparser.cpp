@@ -121,8 +121,6 @@ NodeList* parse(char *string) {
 		case '#':
 			c = getc(s);
 			if (c == '*') {
-				//n =	new Node;
-				//n->nodeType = NODE_TYPE_COMMENT;
 				int commentStartPos = s->pos + 1;
 				do {
 					c = getc(s);
@@ -130,14 +128,10 @@ NodeList* parse(char *string) {
 						c = getc(s);
 						if (c == '#') {
 							// comment is closed!
-							//n->value = (char*) malloc(s->pos - commentStartPos - 1);
-							//strncpy(n->value, s->string + commentStartPos, s->pos - commentStartPos - 2);
 							break;
 						}
 					}
 				} while (c);
-				//nl->node = n;
-				//writePos(n, s);
 			}
 			else {
 				lexerError(s, "Unexpected symbol.");
@@ -196,7 +190,7 @@ NodeList* parse(char *string) {
 	nl->next->prev = nl;
 	nl = nl->next;
 	nl->node->nodeType = NODE_TYPE_EOF;
-	nl->node->value = "";
+	nl->node->value = "eof";
 	writePos(nl->node, s);
 
 	return begin;
