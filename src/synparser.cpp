@@ -12,18 +12,19 @@
 #include "lexparser.h"
 #include "synparser.h"
 
-NodeList* definition(NodeList *nodes);
-NodeList* expression(NodeList *nodes);
-NodeList* simpleTerm(NodeList *nodes);
-NodeList* term(NodeList *nodes);
-NodeList* factor(NodeList *nodes);
-NodeList* stabilize(NodeList *nodes);
+AstNode* definition();
+AstNode* calculate();
+AstNode* simpleTerm();
+AstNode* term();
+AstNode* factor();
+void stabilize();
 bool addDefObject(Node *currentNode, DefObject *object);
 DefObject* getDefObject(Node *currentNode, char *name);
-void parseNodes(NodeList *nodes);
+AstNode* parseNodes();
 
 static bool hasError;
 static DefContext *globalContext;
+static NodeList *nodes;
 
 void syntaxError(Node *node, char *error) {
 	printf("Syntax error: %s at position [%d, %d]\n",
@@ -37,56 +38,73 @@ void unexpected(Node *node) {
 	hasError = true;
 }
 
-void synparse(NodeList *nodes) {
+AstNode* synparse(NodeList *nodeList) {
 	hasError = false;
 	globalContext = new DefContext;
 	globalContext->name = "global";
+	nodes = nodeList;
 
-    parseNodes(nodes);
+	AstNode *ast = parseNodes();
 
     if (hasError) {
 		printf("COMPILATION FAILED\n");
 	}
+
+    return ast;
 }
 
-void parseNodes(NodeList *nodes) {
-    NodeList *list = nodes;
-    while (list != NULL) {
-		switch (list->node->nodeType) {
+AstNode* parseNodes() {
+	AstNode *astNodeList = new AstNode; // points to the begin
+	AstNode *astNode = astNodeList;
+	astNode->type = SEQUENCE;
+
+    while (nodes != NULL) {
+		switch (nodes->node->nodeType) {
 			case NODE_TYPE_DEF:
-				list = definition(list);
+				astNode->left = definition();
 				break;
 			case NODE_TYPE_CALC:
-				list = expression(list->next);
+				nodes = nodes->next;
+				astNode->left = calculate();
 				break;
 			case NODE_TYPE_EOF:
-				return;
+				return astNodeList;
 			default:
-				unexpected(list->node);
-				list = stabilize(list);
+				unexpected(nodes->node);
+				stabilize();
 		}
-		if (list != NULL) {
-			list = list->next;
+		if (nodes != NULL) {
+			nodes = nodes->next;
+		}
+
+		// next AST node
+		if (astNode->left != null) {
+			astNode->right = new AstNode;
+			astNode = astNode->right;
+			astNode->type = SEQUENCE;
 		}
 	}
+
+    return astNodeList;
 }
 
 bool isStabilizeNodeType(NodeType nodeType) {
 	return nodeType == NODE_TYPE_SEMICOLON || nodeType == NODE_TYPE_EOF;
 }
 
-NodeList* stabilize(NodeList* nodes) {
+void stabilize() {
 	do {
 		nodes = nodes->next;
 		if (nodes != NULL && isStabilizeNodeType(nodes->node->nodeType)) {
 			break;
 		}
 	} while (nodes != NULL);
-
-	return nodes;
 }
 
-NodeList* definition(NodeList *nodes) {
+AstNode* definition() {
+	AstNode *node = new AstNode;
+	node->type = DEF;
+
 	nodes = nodes->next;
 	if (nodes->node->nodeType == NODE_TYPE_IDENTIFIER) {
 		DefObject *object = new DefObject;
@@ -95,15 +113,23 @@ NodeList* definition(NodeList *nodes) {
 
 		nodes = nodes->next;
 		if (addDefObject(nodes->node, object)) {
+			AstNode *left = new AstNode;
+			left->value = object;
+			left->type = IDENT;
+			node->left = left;
+
 			if (nodes->node->nodeType == NODE_TYPE_EQUAL) {
 				nodes = nodes->next;
+				AstNode *right = new AstNode;
+				node->right = right;
 				if (nodes->node->nodeType == NODE_TYPE_NUMBER) {
-					object->value = nodes->node->value;
+					right->value = nodes->node->value;
+					right->type = NUMBER;
 					nodes = nodes->next;
 				}
 				else if (nodes->node->nodeType == NODE_TYPE_IDENTIFIER) {
-					printf("equal to id(%s)\n", nodes->node->value);
-					object->value = nodes->node->value;
+					right->value = getDefObject(nodes->node, nodes->node->value);
+					right->type = IDENT;
 					nodes = nodes->next;
 				}
 				else {
@@ -120,7 +146,7 @@ NodeList* definition(NodeList *nodes) {
 		unexpected(nodes->node);
 		nodes = nodes->next;
 	}
-	return nodes;
+	return node;
 }
 
 bool addDefObject(Node *currentNode, DefObject *object) {
@@ -156,59 +182,103 @@ DefObject* getDefObject(Node *currentNode, char *name) {
 	return null;
 }
 
-NodeList* expression(NodeList *nodes) {
-	nodes = simpleTerm(nodes);
+AstNode* calculate() {
+	AstNode *node = new AstNode;
+	node->type = CALC;
+	node->left = simpleTerm();
 
 	if (nodes != NULL && nodes->node->nodeType != NODE_TYPE_SEMICOLON) {
 		unexpected(nodes->node);
-		nodes = stabilize(nodes);
+		stabilize();
 	}
 
-	return nodes;
+	return node;
 }
 
-NodeList* simpleTerm(NodeList *nodes) {
-	if (nodes->node->nodeType == NODE_TYPE_PLUS
-			|| nodes->node->nodeType == NODE_TYPE_MINUS) {
+AstNode* simpleTerm() {
+	AstNode* node = null;
+
+	if (nodes->node->nodeType == NODE_TYPE_PLUS) {
 		nodes = nodes->next;
+		node = new AstNode;
+		node->type = ADD;
 	}
-	nodes = term(nodes);
+	else if (nodes->node->nodeType == NODE_TYPE_MINUS) {
+		nodes = nodes->next;
+		node = new AstNode;
+		node->type = SUB;
+	}
+
+	AstNode *termAst= term();
+	if (node == null) {
+		node = termAst;
+	}
+	else {
+		node->left = termAst;
+	}
 
 	while (nodes->node->nodeType == NODE_TYPE_PLUS
 			|| nodes->node->nodeType == NODE_TYPE_MINUS) {
+		AstNode *cNode = new AstNode;
+
+		if (nodes->node->nodeType == NODE_TYPE_PLUS) {
+			cNode->type = ADD;
+		}
+		else if (nodes->node->nodeType == NODE_TYPE_MINUS) {
+			cNode->type = SUB;
+		}
+
 		nodes = nodes->next;
-		nodes = term(nodes);
+		cNode->right = simpleTerm();
+		cNode->left = node;
+
+		node = cNode;
 	}
-	return nodes;
+	return node;
 }
 
-NodeList* term(NodeList *nodes) {
-	if (nodes->node->nodeType == NODE_TYPE_MUL
-			|| nodes->node->nodeType == NODE_TYPE_DIV) {
-		nodes = nodes->next;
-	}
-	nodes = factor(nodes);
+AstNode* term() {
+	AstNode *node = factor();
 
 	while (nodes->node->nodeType == NODE_TYPE_MUL
 			|| nodes->node->nodeType == NODE_TYPE_DIV) {
+		AstNode *cNode= new AstNode;
+
+		if (nodes->node->nodeType == NODE_TYPE_MUL) {
+			cNode->type = MUL;
+		}
+		else if (nodes->node->nodeType == NODE_TYPE_MUL) {
+			cNode->type = DIV;
+		}
+
 		nodes = nodes->next;
-		nodes = factor(nodes);
+		cNode->right = term();
+		cNode->left = node;
+
+		node = cNode;
 	}
-	return nodes;
+
+	return node;
 }
 
-NodeList* factor(NodeList *nodes) {
+AstNode* factor() {
+	AstNode *node = new AstNode;
+
 	if (nodes->node->nodeType == NODE_TYPE_IDENTIFIER) {
-		/*DefObject *object = */getDefObject(nodes->node, nodes->node->value);
+		node->type = IDENT;
+		node->value = getDefObject(nodes->node, nodes->node->value) -> name;
 		nodes = nodes->next;
 	}
 	else if (nodes->node->nodeType == NODE_TYPE_NUMBER) {
+		node->type = NUMBER;
+		node->value = nodes->node->value;
 		nodes = nodes->next;
 	}
 	else if (nodes->node->nodeType == NODE_TYPE_LBRACE) {
 		nodes = nodes->next;
 		do {
-			nodes = simpleTerm(nodes);
+			node->type = GROUP;
+			node->left = simpleTerm();
 			if (nodes == NULL || (nodes->node->nodeType != NODE_TYPE_RBRACE && nodes->next == NULL)) {
 				syntaxError(nodes->node, "right brace is absent");
 				break;
@@ -216,11 +286,12 @@ NodeList* factor(NodeList *nodes) {
 		} while (nodes->node->nodeType != NODE_TYPE_RBRACE);
 		nodes = nodes->next;
 	}
-
 	else {
 		unexpected(nodes->node);
-		nodes = stabilize(nodes);
+		stabilize();
+		delete node;
+		node = null;
 	}
-	return nodes;
+	return node;
 }
 

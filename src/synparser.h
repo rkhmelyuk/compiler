@@ -19,9 +19,23 @@ enum ObjectType {
 	FUNCTION
 };
 
+enum AstNodeType {
+	SEQUENCE = 1,
+	EQUAL,
+	ADD,
+	SUB,
+	DIV,
+	DEF,
+	CALC,
+	IDENT,
+	NUMBER,
+	MUL,
+	GROUP,
+};
+
 struct DefObject {
 	char *name;
-	char *value;
+	//char *value;
 	ObjectType type;
 };
 
@@ -36,6 +50,13 @@ struct DefContext {
 	DefObjectNode *last;
 };
 
-extern void synparse(NodeList *nodes);
+struct AstNode {
+	void *value;
+	AstNodeType type;
+	AstNode *left;
+	AstNode *right;
+};
+
+extern AstNode* synparse(NodeList *nodes);
 
 #endif /* SYNPARSER_H_ */
