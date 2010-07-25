@@ -6,12 +6,16 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <fstream>
 
 #include "ast.h"
 #include "types.h"
 #include "lexparser.h"
 #include "synparser.h"
 #include "interpretator.h"
+
+using namespace std;
 
 void printAstNode(AstNode *ast, int indent);
 
@@ -42,9 +46,13 @@ void printAstNode(AstNode *ast, int indent) {
 			printf(" ");
 		}
 		char *type;
+		char *format = "[%s:%s]:";
 		switch (ast->type) {
 			case SEQUENCE:
 				type = "sequence";
+				break;
+			case ASSIGN:
+				type = "assign";
 				break;
 			case DEF:
 				type = "def";
@@ -57,6 +65,7 @@ void printAstNode(AstNode *ast, int indent) {
 				break;
 			case NUMBER:
 				type = "number";
+				format = "[%s:%d]";
 				break;
 			case EQUAL:
 				type = "eq";
@@ -79,7 +88,7 @@ void printAstNode(AstNode *ast, int indent) {
 			default:
 				type = "unknown";
 		}
-		printf("[%s:%s]:", type, ast->value);
+		printf(format, type, ast->value);
 		printLeft(ast->left, indent);
 		printRight(ast->right, indent);
 	}
@@ -87,19 +96,34 @@ void printAstNode(AstNode *ast, int indent) {
 
 int main(int argc, char** argv) {
 
+
+	char* program = null;
+
+	if (argc == 2) {
+		char *fileName = argv[1];
+		ifstream file(fileName, ios::in);
+
+		file.seekg(0, ios::end);
+		uint32 size = file.tellg();
+		file.seekg(0, ios::beg);
+
+		program = new char[size];
+		file.read(program, size);
+
+		file.close();
+	}
+
 	//printf("Lexical parser started\n");
-	NodeList *list = parse(
-			"def a = 12;\n"
-			"def x = a;\n"
-			"calculate 12 + a + #* this is great *# (23 * 45 + 12) + (a * (12 - 23)) + a * x;");
+	NodeList *list = parse(program);
 	//
 
 	//printf("Syntatical parser started\n");
 	AstNode *ast = synparse(list);
 
 	if (ast != null) {
-		interpretate(ast);
+		ast = optimize(ast);
 		//printAstNode(ast, 0);
+		interpretate(ast);
 	}
 
 	printf("\n\nFinished!\n");

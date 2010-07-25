@@ -17,12 +17,13 @@ using namespace std;
 
 struct VarObject {
 	char *name;
-	int value;
+	int32 value;
 };
 
 static list<VarObject*> vars;
 
 void define(AstNode* ast);
+void assign(AstNode* ast);
 void calculate(AstNode* ast);
 int calc(AstNode* ast);
 
@@ -41,6 +42,9 @@ void interpretate(AstNode* ast) {
 			case CALC:
 				calculate(ast);
 				break;
+			case ASSIGN:
+				assign(ast);
+				break;
 		}
 	}
 }
@@ -49,25 +53,24 @@ void define(AstNode* ast) {
 	VarObject* var = new VarObject;
 
 	var->name = (char*) ast->left->value;
-	if (ast->right->type == NUMBER) {
-		var->value = atoi((char*) ast->right->value);
-	}
-	else if (ast->right->type == IDENT) {
-		VarObject* refVar = findVar((char*) ast->right->value);
-		var->value = refVar->value;
-	}
+	var->value = calc(ast->right);
 	vars.push_back(var);
 }
 
-void calculate(AstNode* ast) {
-	printf("%d", calc(ast->left));
+void assign(AstNode* ast) {
+	VarObject* var = findVar((char*) ast->left->value);
+	var->value = calc(ast->right);
 }
 
-int calc(AstNode* ast) {
+void calculate(AstNode* ast) {
+	printf("%d\n", calc(ast->left));
+}
+
+int32  calc(AstNode* ast) {
 	if (ast != null) {
 
 		VarObject* var = null;
-		int left, right;
+		int32  left, right;
 		switch (ast->type) {
 			case ADD:
 				left = calc(ast->left);
@@ -86,7 +89,7 @@ int calc(AstNode* ast) {
 				right = calc(ast->right);
 				return left - right;
 			case NUMBER:
-				return atoi((char*) ast->value);
+				return (int32) ast->value;
 			case IDENT:
 				var = findVar((char*) ast->value);
 				return var->value;

@@ -12,8 +12,9 @@
 #include "lexparser.h"
 #include "synparser.h"
 
-AstNode* definition();
 AstNode* calculate();
+AstNode* definition();
+AstNode* assignment();
 AstNode* simpleTerm();
 AstNode* term();
 AstNode* factor();
@@ -41,6 +42,8 @@ void unexpected(Node *node) {
 AstNode* synparse(NodeList *nodeList) {
 	hasError = false;
 	globalContext = new DefContext;
+	globalContext->first = null;
+	globalContext->last= null;
 	globalContext->name = "global";
 	nodes = nodeList;
 
@@ -56,6 +59,9 @@ AstNode* synparse(NodeList *nodeList) {
 
 AstNode* parseNodes() {
 	AstNode *astNodeList = new AstNode; // points to the begin
+	astNodeList->left = astNodeList->right = null;
+	astNodeList->value = null;
+
 	AstNode *astNode = astNodeList;
 	astNode->type = SEQUENCE;
 
@@ -67,6 +73,17 @@ AstNode* parseNodes() {
 			case NODE_TYPE_CALC:
 				nodes = nodes->next;
 				astNode->left = calculate();
+				break;
+			case NODE_TYPE_IDENTIFIER:
+				if (nodes->next != null) {
+					if (nodes->next->node->nodeType == NODE_TYPE_ASSIGN) {
+						// assignment
+						astNode->left = assignment();
+						break;
+					}
+				}
+				unexpected(nodes->node);
+				stabilize();
 				break;
 			case NODE_TYPE_EOF:
 				return astNodeList;
@@ -119,28 +136,38 @@ AstNode* definition() {
 			left->type = IDENT;
 			node->left = left;
 
-			if (nodes->node->nodeType == NODE_TYPE_EQUAL) {
+			if (nodes->node->nodeType == NODE_TYPE_ASSIGN) {
 				nodes = nodes->next;
-				AstNode *right = new AstNode;
-				node->right = right;
-				if (nodes->node->nodeType == NODE_TYPE_NUMBER) {
-					right->value = nodes->node->value;
-					right->type = NUMBER;
-					nodes = nodes->next;
-				}
-				else if (nodes->node->nodeType == NODE_TYPE_IDENTIFIER) {
-					right->value = getDefObject(nodes->node, nodes->node->value) -> name;
-					right->type = IDENT;
-					nodes = nodes->next;
-				}
-				else {
-					unexpected(nodes->node);
-					nodes = nodes->next;
-				}
+				node->right = simpleTerm();
 			}
 			if (nodes->node->nodeType != NODE_TYPE_SEMICOLON) {
 				unexpected(nodes->node);
 			}
+		}
+	}
+	else {
+		unexpected(nodes->node);
+		nodes = nodes->next;
+	}
+	return node;
+}
+
+AstNode* assignment() {
+	AstNode *left = new AstNode;
+	left->value = nodes->node->value;
+	left->type = IDENT;
+
+	AstNode *node = new AstNode;
+	node->type = ASSIGN;
+	node->left = left;
+
+	nodes = nodes->next;
+	if (nodes->next != null) {
+		nodes = nodes->next;
+		node->right = simpleTerm();
+
+		if (nodes->node->nodeType != NODE_TYPE_SEMICOLON) {
+			unexpected(nodes->node);
 		}
 	}
 	else {

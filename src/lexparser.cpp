@@ -10,6 +10,7 @@
 #include <string.h>
 #include <cctype>
 #include "lexparser.h"
+#include "types.h"
 
 #undef getc
 
@@ -21,6 +22,9 @@ void writePos(Node *node, Sym *s);
 NodeList* parse(char *string) {
 
 	NodeList *begin = new NodeList;
+	begin->next = begin->prev = null;
+	begin->node = null;
+
 	NodeList *nl = begin;
 
 	Sym *s = new Sym;
@@ -84,10 +88,75 @@ NodeList* parse(char *string) {
 			continue;
 		case '=':
 			n = new Node;
-			n->value = new char[2];
-			n->value[0] = c;
-			n->value[1] = 0;
-			n->nodeType = NODE_TYPE_EQUAL;
+			if (getc(s) == '=') {
+				n->value = new char[3];
+				n->value[0] = c;
+				n->value[1] = c;
+				n->value[2] = 0;
+				n->nodeType = NODE_TYPE_EQUAL;
+			}
+			else {
+				revokec(s);
+				n->value = new char[2];
+				n->value[0] = c;
+				n->value[1] = 0;
+				n->nodeType = NODE_TYPE_ASSIGN;
+			}
+			nl->node = n;
+			writePos(n, s);
+			continue;
+		case '>':
+			n = new Node;
+			if (getc(s) == '=') {
+				n->value = new char[3];
+				n->value[0] = '>';
+				n->value[1] = '=';
+				n->value[2] = 0;
+				n->nodeType = NODE_TYPE_GREATER_EQ;
+			}
+			else {
+				revokec(s);
+				n->value = new char[2];
+				n->value[0] = '>';
+				n->value[1] = 0;
+				n->nodeType = NODE_TYPE_GREATER;
+			}
+			nl->node = n;
+			writePos(n, s);
+			continue;
+		case '!':
+			if (getc(s) == '=') {
+				n = new Node;
+				n->value = new char[3];
+				n->value[0] = '!';
+				n->value[1] = '=';
+				n->value[2] = 0;
+				n->nodeType = NODE_TYPE_NOT_EQUAL;
+				nl->node = n;
+				writePos(n, s);
+			}
+			else {
+				revokec(s);
+				lexerError(s, "Unknown construction, did you mean '!='");
+			}
+
+			continue;
+		case '<':
+			n = new Node;
+			if (getc(s) == '=') {
+				n->value = new char[3];
+				n->value[0] = '<';
+				n->value[1] = '=';
+				n->value[2] = 0;
+				n->nodeType = NODE_TYPE_LESS_EQ;
+			}
+			else {
+				revokec(s);
+				n->value = new char[2];
+				n->value[0] = '<';
+				n->value[1] = 0;
+				n->nodeType = NODE_TYPE_LESS;
+			}
 			nl->node = n;
 			writePos(n, s);
 			continue;
@@ -121,7 +190,6 @@ NodeList* parse(char *string) {
 		case '#':
 			c = getc(s);
 			if (c == '*') {
-				int commentStartPos = s->pos + 1;
 				do {
 					c = getc(s);
 					if (c == '*') {
@@ -134,7 +202,12 @@ NodeList* parse(char *string) {
 				} while (c);
 			}
 			else {
-				lexerError(s, "Unexpected symbol.");
+				do {
+					c = getc(s);
+					if (c == '\n') {
+						break;
+					}
+				} while (c);
 			}
 			continue;
 		}
@@ -180,7 +253,13 @@ NodeList* parse(char *string) {
 			}
 			writePos(n, s);
 		}
+		else if (c == EOF || c == 25) {
+			// rollback to previous node and break reading
+			nl = nl->prev;
+			break;
+		}
 		else {
+			printf("%c", c);
 			lexerError(s, "Unexpected symbol.");
 		}
 	}

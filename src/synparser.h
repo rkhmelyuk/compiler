@@ -13,7 +13,6 @@
 #include "lexparser.h"
 
 #define SYNTAX_ERROR 65
-#define null NULL
 
 enum ObjectType {
 	VARIABLE,
@@ -22,7 +21,6 @@ enum ObjectType {
 
 struct DefObject {
 	char *name;
-	//char *value;
 	ObjectType type;
 };
 

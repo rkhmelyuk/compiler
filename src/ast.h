@@ -8,9 +8,16 @@
 #ifndef AST_H_
 #define AST_H_
 
+#include "types.h"
+
 enum AstNodeType {
 	SEQUENCE = 1,
+	ASSIGN,
 	EQUAL,
+	GREATER_EQUAL,
+	GREATER,
+	LESS_EQUAL,
+	LESS,
 	ADD,
 	SUB,
 	DIV,
@@ -26,7 +33,10 @@ struct AstNode {
 	AstNodeType type;
 	AstNode *left;
 	AstNode *right;
+
+	AstNode(): value(null), left(null), right(null){}
 };
 
+extern AstNode* optimize(AstNode* ast);
 
 #endif /* AST_H_ */
