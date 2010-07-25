@@ -7,9 +7,11 @@
 
 #include <stdio.h>
 
+#include "ast.h"
 #include "types.h"
 #include "lexparser.h"
 #include "synparser.h"
+#include "interpretator.h"
 
 void printAstNode(AstNode *ast, int indent);
 
@@ -71,9 +73,6 @@ void printAstNode(AstNode *ast, int indent) {
 			case SUB:
 				type = "-";
 				break;
-			case GROUP:
-				type = "()";
-				break;
 			case 0:
 				type = "zero";
 				break;
@@ -88,22 +87,20 @@ void printAstNode(AstNode *ast, int indent) {
 
 int main(int argc, char** argv) {
 
-	printf("Lexical parser started\n");
+	//printf("Lexical parser started\n");
 	NodeList *list = parse(
 			"def a = 12;\n"
-			"def x = 3;\n"
-			"calculate 12 + a + #* this is great *# (23 * 45) + (a * (12 - 23)) + a * x;");
+			"def x = a;\n"
+			"calculate 12 + a + #* this is great *# (23 * 45 + 12) + (a * (12 - 23)) + a * x;");
 	//
 
-	/*while (list && list->node) {
-		printf("(%d)%s\n", list->node->nodeType, list->node->value);
-		list = list->next;
-	}*/
-
-	printf("Syntatical parser started\n");
+	//printf("Syntatical parser started\n");
 	AstNode *ast = synparse(list);
 
-	printAstNode(ast, 0);
+	if (ast != null) {
+		interpretate(ast);
+		//printAstNode(ast, 0);
+	}
 
-	printf("\nFinished!\n");
+	printf("\n\nFinished!\n");
 }

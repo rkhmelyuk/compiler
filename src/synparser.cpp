@@ -47,7 +47,8 @@ AstNode* synparse(NodeList *nodeList) {
 	AstNode *ast = parseNodes();
 
     if (hasError) {
-		printf("COMPILATION FAILED\n");
+		printf("COMPILATION FAILED!\n");
+		return null;
 	}
 
     return ast;
@@ -114,7 +115,7 @@ AstNode* definition() {
 		nodes = nodes->next;
 		if (addDefObject(nodes->node, object)) {
 			AstNode *left = new AstNode;
-			left->value = object;
+			left->value = object->name;
 			left->type = IDENT;
 			node->left = left;
 
@@ -128,7 +129,7 @@ AstNode* definition() {
 					nodes = nodes->next;
 				}
 				else if (nodes->node->nodeType == NODE_TYPE_IDENTIFIER) {
-					right->value = getDefObject(nodes->node, nodes->node->value);
+					right->value = getDefObject(nodes->node, nodes->node->value) -> name;
 					right->type = IDENT;
 					nodes = nodes->next;
 				}
@@ -262,14 +263,16 @@ AstNode* term() {
 }
 
 AstNode* factor() {
-	AstNode *node = new AstNode;
+	AstNode *node = null;
 
 	if (nodes->node->nodeType == NODE_TYPE_IDENTIFIER) {
+		node = new AstNode;
 		node->type = IDENT;
 		node->value = getDefObject(nodes->node, nodes->node->value) -> name;
 		nodes = nodes->next;
 	}
 	else if (nodes->node->nodeType == NODE_TYPE_NUMBER) {
+		node = new AstNode;
 		node->type = NUMBER;
 		node->value = nodes->node->value;
 		nodes = nodes->next;
@@ -277,8 +280,7 @@ AstNode* factor() {
 	else if (nodes->node->nodeType == NODE_TYPE_LBRACE) {
 		nodes = nodes->next;
 		do {
-			node->type = GROUP;
-			node->left = simpleTerm();
+			node = simpleTerm();
 			if (nodes == NULL || (nodes->node->nodeType != NODE_TYPE_RBRACE && nodes->next == NULL)) {
 				syntaxError(nodes->node, "right brace is absent");
 				break;
@@ -289,8 +291,6 @@ AstNode* factor() {
 	else {
 		unexpected(nodes->node);
 		stabilize();
-		delete node;
-		node = null;
 	}
 	return node;
 }

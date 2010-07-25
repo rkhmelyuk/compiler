@@ -9,6 +9,7 @@
 #define SYNPARSER_H_
 
 #include "types.h"
+#include "ast.h"
 #include "lexparser.h"
 
 #define SYNTAX_ERROR 65
@@ -17,20 +18,6 @@
 enum ObjectType {
 	VARIABLE,
 	FUNCTION
-};
-
-enum AstNodeType {
-	SEQUENCE = 1,
-	EQUAL,
-	ADD,
-	SUB,
-	DIV,
-	DEF,
-	CALC,
-	IDENT,
-	NUMBER,
-	MUL,
-	GROUP,
 };
 
 struct DefObject {
@@ -48,13 +35,6 @@ struct DefContext {
 	char *name;
 	DefObjectNode *first;
 	DefObjectNode *last;
-};
-
-struct AstNode {
-	void *value;
-	AstNodeType type;
-	AstNode *left;
-	AstNode *right;
 };
 
 extern AstNode* synparse(NodeList *nodes);
