@@ -82,6 +82,15 @@ void printAstNode(AstNode *ast, int indent) {
 			case SUB:
 				type = "-";
 				break;
+			case THEN:
+				type = "then";
+				break;
+			case IF:
+				type = "if";
+				break;
+			case ELSE:
+				type = "else";
+				break;
 			case 0:
 				type = "zero";
 				break;

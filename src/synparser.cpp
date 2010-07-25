@@ -16,6 +16,10 @@ AstNode* calculate();
 AstNode* definition();
 AstNode* assignment();
 AstNode* simpleTerm();
+AstNode* ifThenElse();
+AstNode* comparison();
+AstNode* statement();
+AstNode* statements();
 AstNode* term();
 AstNode* factor();
 void stabilize();
@@ -42,8 +46,7 @@ void unexpected(Node *node) {
 AstNode* synparse(NodeList *nodeList) {
 	hasError = false;
 	globalContext = new DefContext;
-	globalContext->first = null;
-	globalContext->last= null;
+	globalContext->objects = new list<DefObject*>;
 	globalContext->name = "global";
 	nodes = nodeList;
 
@@ -65,32 +68,13 @@ AstNode* parseNodes() {
 	AstNode *astNode = astNodeList;
 	astNode->type = SEQUENCE;
 
-    while (nodes != NULL) {
-		switch (nodes->node->nodeType) {
-			case NODE_TYPE_DEF:
-				astNode->left = definition();
-				break;
-			case NODE_TYPE_CALC:
-				nodes = nodes->next;
-				astNode->left = calculate();
-				break;
-			case NODE_TYPE_IDENTIFIER:
-				if (nodes->next != null) {
-					if (nodes->next->node->nodeType == NODE_TYPE_ASSIGN) {
-						// assignment
-						astNode->left = assignment();
-						break;
-					}
-				}
-				unexpected(nodes->node);
-				stabilize();
-				break;
-			case NODE_TYPE_EOF:
-				return astNodeList;
-			default:
-				unexpected(nodes->node);
-				stabilize();
-		}
+    while (nodes != null && nodes->node != null) {
+    	if (nodes->node->nodeType == NODE_TYPE_EOF) {
+			break;
+    	}
+
+    	astNode->left = statement();
+
 		if (nodes != NULL) {
 			nodes = nodes->next;
 		}
@@ -102,6 +86,84 @@ AstNode* parseNodes() {
 			astNode->type = SEQUENCE;
 		}
 	}
+
+    return astNodeList;
+}
+
+AstNode* statement() {
+	AstNode* ast = null;
+
+	switch (nodes->node->nodeType) {
+		case NODE_TYPE_DEF:
+			nodes = nodes->next;
+			ast = definition();
+			break;
+		case NODE_TYPE_CALC:
+			nodes = nodes->next;
+			ast= calculate();
+			break;
+		case NODE_TYPE_IDENTIFIER:
+			if (nodes->next != null) {
+				if (nodes->next->node->nodeType == NODE_TYPE_ASSIGN) {
+					// assignment
+					ast = assignment();
+					break;
+				}
+			}
+			unexpected(nodes->node);
+			stabilize();
+			break;
+		case NODE_TYPE_IF:
+			nodes = nodes->next;
+			ast = ifThenElse();
+			break;
+		case NODE_TYPE_EOF:
+			break;
+		default:
+			unexpected(nodes->node);
+			stabilize();
+	}
+
+	return ast;
+}
+
+AstNode* statements() {
+	if (nodes->node->nodeType != NODE_TYPE_LBRACE) {
+		unexpected(nodes->node);
+	}
+
+	AstNode *astNodeList = new AstNode; // points to the begin
+	astNodeList->left = astNodeList->right = null;
+	astNodeList->value = null;
+
+	AstNode *astNode = astNodeList;
+	astNode->type = SEQUENCE;
+
+	nodes = nodes->next;
+
+    while (nodes != null && nodes->node != null) {
+    	if (nodes->node->nodeType == NODE_TYPE_EOF) {
+			syntaxError(nodes->node, "Unexpected end of file");
+    	}
+    	else if (nodes->node->nodeType == NODE_TYPE_RBRACE) {
+    		break;
+    	}
+
+    	astNode->left = statement();
+
+		if (nodes != NULL) {
+			nodes = nodes->next;
+		}
+
+		// next AST node
+		if (astNode->left != null) {
+			astNode->right = new AstNode;
+			astNode = astNode->right;
+			astNode->type = SEQUENCE;
+		}
+	}
+
+    nodes = nodes->next;
 
     return astNodeList;
 }
@@ -123,7 +185,6 @@ AstNode* definition() {
 	AstNode *node = new AstNode;
 	node->type = DEF;
 
-	nodes = nodes->next;
 	if (nodes->node->nodeType == NODE_TYPE_IDENTIFIER) {
 		DefObject *object = new DefObject;
 		object->name = nodes->node->value;
@@ -177,33 +238,128 @@ AstNode* assignment() {
 	return node;
 }
 
+AstNode* ifThenElse() {
+
+	AstNode *node = new AstNode;
+	node->type = IF;
+
+	if (nodes->node->nodeType == NODE_TYPE_LPAREN) {
+		nodes = nodes->next;
+
+		AstNode *left = new AstNode; // condition
+		left = comparison();
+		node->left = left;
+
+		if (nodes->node->nodeType == NODE_TYPE_RPAREN) {
+			nodes = nodes->next;
+			if (nodes->node->nodeType == NODE_TYPE_THEN) {
+				AstNode *right = new AstNode;
+				right->type = THEN;
+				node->right = right;
+
+				nodes = nodes->next;
+				if (nodes->node->nodeType == NODE_TYPE_LBRACE) {
+					// block
+					right->left = statements();
+				}
+				else {
+					right->left = statement();
+					nodes = nodes->next;
+				}
+				if (nodes->node->nodeType == NODE_TYPE_ELSE) {
+					nodes = nodes->next;
+					if (nodes->node->nodeType == NODE_TYPE_LBRACE) {
+						// block
+						right->right = statements();
+					}
+					else {
+						right->right = statement();
+						nodes = nodes->next;
+					}
+				}
+				//else {
+					nodes = nodes->prev;
+				//}
+			}
+			else {
+				syntaxError(nodes->node, "'then' is absent");
+			}
+		}
+		else {
+			syntaxError(nodes->node, "right parenthesis is absent");
+		}
+	}
+	else {
+		syntaxError(nodes->node, "left parenthesis is absent");
+	}
+
+	return node;
+}
+
+AstNode* comparison() {
+	AstNode* node = new AstNode;
+
+	node->left = simpleTerm();
+
+	int nodeType = nodes->node->nodeType;
+	nodes = nodes->next;
+	node->right = simpleTerm();
+
+	switch (nodeType) {
+		case NODE_TYPE_EQUAL:
+			node->type = EQUAL;
+			break;
+		case NODE_TYPE_LESS:
+			node->type = LESS;
+			break;
+		case NODE_TYPE_LESS_EQ:
+			node->type = LESS_EQUAL;
+			break;
+		case NODE_TYPE_GREATER_EQ:
+			node->type = GREATER_EQUAL;
+			break;
+		case NODE_TYPE_GREATER:
+			node->type = GREATER_EQUAL;
+			break;
+		case NODE_TYPE_NOT_EQUAL:
+			node->type = NOT_EQUAL;
+			break;
+		default:
+			syntaxError(nodes->node, "wrong condition statement");
+	}
+
+	return node;
+}
+
 bool addDefObject(Node *currentNode, DefObject *object) {
-	for (DefObjectNode *node = globalContext->first; node != NULL; node = node->next) {
-		if (strcmp(object->name, node->obj->name) == 0) {
+	for (list<DefObject*>::iterator iter = globalContext->objects->begin(); iter != globalContext->objects->end(); iter++) {
+		DefObject *obj = *iter;
+		if (strcmp(object->name, obj->name) == 0) {
 			// variable is already defined
 			syntaxError(currentNode, "variable '%s' is already defined");
 			return false;
 		}
 	}
 
-	DefObjectNode *node = new DefObjectNode;
-	node->obj = object;
-	node->next = null;
-	if (globalContext->last == null) {
+	globalContext->objects->push_back(object);
+
+	/*if (globalContext->last == null) {
 		globalContext->first = node;
 		globalContext->last = node;
 	}
 	else {
-		globalContext->last->next = node;
-	}
+		node->prev = globalContext->last;
+		globalContext->last = node;
+	}*/
 	return true;
 }
 
 DefObject* getDefObject(Node *currentNode, char *name) {
-	for (DefObjectNode *node = globalContext->first; node != NULL; node = node->next) {
-		if (strcmp(name, node->obj->name) == 0) {
+	for (list<DefObject*>::iterator iter = globalContext->objects->begin(); iter != globalContext->objects->end(); iter++) {
+		DefObject *obj = *iter;
+		if (strcmp(name, obj->name) == 0) {
 			// variable is already defined
-			return node->obj;
+			return obj;
 		}
 	}
 	syntaxError(currentNode, "unknown variable found '%s'");
@@ -304,15 +460,15 @@ AstNode* factor() {
 		node->value = nodes->node->value;
 		nodes = nodes->next;
 	}
-	else if (nodes->node->nodeType == NODE_TYPE_LBRACE) {
+	else if (nodes->node->nodeType == NODE_TYPE_LPAREN) {
 		nodes = nodes->next;
 		do {
 			node = simpleTerm();
-			if (nodes == NULL || (nodes->node->nodeType != NODE_TYPE_RBRACE && nodes->next == NULL)) {
-				syntaxError(nodes->node, "right brace is absent");
+			if (nodes == NULL || (nodes->node->nodeType != NODE_TYPE_RPAREN && nodes->next == NULL)) {
+				syntaxError(nodes->node, "right parenthesis is absent");
 				break;
 			}
-		} while (nodes->node->nodeType != NODE_TYPE_RBRACE);
+		} while (nodes->node->nodeType != NODE_TYPE_RPAREN);
 		nodes = nodes->next;
 	}
 	else {

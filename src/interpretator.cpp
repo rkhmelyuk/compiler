@@ -24,8 +24,10 @@ static list<VarObject*> vars;
 
 void define(AstNode* ast);
 void assign(AstNode* ast);
+void ifThenElse(AstNode* ast);
 void calculate(AstNode* ast);
 int calc(AstNode* ast);
+bool compare(AstNode* ast);
 
 VarObject* findVar(char* name);
 
@@ -45,6 +47,9 @@ void interpretate(AstNode* ast) {
 			case ASSIGN:
 				assign(ast);
 				break;
+			case IF:
+				ifThenElse(ast);
+				break;
 		}
 	}
 }
@@ -60,6 +65,16 @@ void define(AstNode* ast) {
 void assign(AstNode* ast) {
 	VarObject* var = findVar((char*) ast->left->value);
 	var->value = calc(ast->right);
+}
+
+void ifThenElse(AstNode* ast) {
+	bool result = compare(ast->left);
+	if (result) {
+		interpretate(ast->right->left);
+	}
+	else if (ast->right->right != null){
+		interpretate(ast->right->right);
+	}
 }
 
 void calculate(AstNode* ast) {
@@ -100,6 +115,32 @@ int32  calc(AstNode* ast) {
 	}
 }
 
+bool compare(AstNode* ast) {
+	if (ast != null) {
+		int32 left = calc(ast->left);
+		int32 right = calc(ast->right);
+
+		switch (ast->type) {
+			case EQUAL:
+				return left == right;
+			case NOT_EQUAL:
+				return left != right;
+			case LESS:
+				return left < right;
+			case LESS_EQUAL:
+				return left <= right;
+			case GREATER:
+				return left > right;
+			case GREATER_EQUAL:
+				return left >= right;
+			default:
+				printf("Unexpected comparison type %d", ast->type);
+				exit(1);
+		}
+	}
+	return false;
+}
+
 VarObject* findVar(char* name) {
 	for (list<VarObject*>::iterator i = vars.begin(); i != vars.end(); i++) {
 		VarObject *obj = *i;
@@ -108,5 +149,9 @@ VarObject* findVar(char* name) {
 			return obj;
 		}
 	}
+
+	printf("Unknown variable %s", name);
+	exit(1);
+
 	return null;
 }

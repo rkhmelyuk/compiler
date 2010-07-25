@@ -14,6 +14,7 @@ enum AstNodeType {
 	SEQUENCE = 1,
 	ASSIGN,
 	EQUAL,
+	NOT_EQUAL,
 	GREATER_EQUAL,
 	GREATER,
 	LESS_EQUAL,
@@ -25,7 +26,10 @@ enum AstNodeType {
 	CALC,
 	IDENT,
 	NUMBER,
-	MUL
+	MUL,
+	IF,
+	THEN,
+	ELSE
 };
 
 struct AstNode {

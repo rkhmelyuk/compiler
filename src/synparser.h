@@ -8,11 +8,15 @@
 #ifndef SYNPARSER_H_
 #define SYNPARSER_H_
 
+#include <list>
+
 #include "types.h"
 #include "ast.h"
 #include "lexparser.h"
 
 #define SYNTAX_ERROR 65
+
+using namespace std;
 
 enum ObjectType {
 	VARIABLE,
@@ -24,15 +28,9 @@ struct DefObject {
 	ObjectType type;
 };
 
-struct DefObjectNode {
-	DefObject *obj;
-	DefObjectNode *next;
-};
-
 struct DefContext {
 	char *name;
-	DefObjectNode *first;
-	DefObjectNode *last;
+	list<DefObject*> *objects;
 };
 
 extern AstNode* synparse(NodeList *nodes);

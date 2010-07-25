@@ -174,11 +174,29 @@ NodeList* parse(char *string) {
 			n->value = new char[2];
 			n->value[0] = c;
 			n->value[1] = 0;
-			n->nodeType = NODE_TYPE_LBRACE;
+			n->nodeType = NODE_TYPE_LPAREN;
 			nl->node = n;
 			writePos(n, s);
 			continue;
 		case ')':
+			n = new Node;
+			n->value = new char[2];
+			n->value[0] = c;
+			n->value[1] = 0;
+			n->nodeType = NODE_TYPE_RPAREN;
+			nl->node = n;
+			writePos(n, s);
+			continue;
+		case '{':
+			n = new Node;
+			n->value = new char[2];
+			n->value[0] = c;
+			n->value[1] = 0;
+			n->nodeType = NODE_TYPE_LBRACE;
+			nl->node = n;
+			writePos(n, s);
+			continue;
+		case '}':
 			n = new Node;
 			n->value = new char[2];
 			n->value[0] = c;
@@ -247,6 +265,15 @@ NodeList* parse(char *string) {
 			}
 			else if (strcmp(n->value, "calculate") == 0) {
 				n->nodeType = NODE_TYPE_CALC;
+			}
+			else if (strcmp(n->value, "if") == 0) {
+				n->nodeType = NODE_TYPE_IF;
+			}
+			else if (strcmp(n->value, "then") == 0) {
+				n->nodeType = NODE_TYPE_THEN;
+			}
+			else if (strcmp(n->value, "else") == 0) {
+				n->nodeType = NODE_TYPE_ELSE;
 			}
 			else {
 				n->nodeType = NODE_TYPE_IDENTIFIER;
