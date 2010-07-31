@@ -25,7 +25,7 @@ enum NodeType {
 	NODE_TYPE_SEMICOLON = 10,
 	NODE_TYPE_ASSIGN = 11,
 	NODE_TYPE_DEF = 12,
-	NODE_TYPE_CALC = 13,
+	NODE_TYPE_PRINT = 13,
 	NODE_TYPE_EOF = 14,
 	NODE_TYPE_GREATER_EQ,
 	NODE_TYPE_GREATER,
@@ -37,7 +37,13 @@ enum NodeType {
 	NODE_TYPE_THEN,
 	NODE_TYPE_ELSE,
 	NODE_TYPE_LBRACE,
-	NODE_TYPE_RBRACE
+	NODE_TYPE_RBRACE,
+	NODE_TYPE_WHILE,
+	NODE_TYPE_BREAK,
+	NODE_TYPE_CONTINUE,
+	NODE_TYPE_FUNC,
+	NODE_TYPE_COMMA,
+	NODE_TYPE_STRING
 };
 
 struct Position {
@@ -49,12 +55,16 @@ struct Node {
 	NodeType nodeType;
 	char *value;
 	Position *position;
+
+	Node(): value(null), position(null){}
 };
 
 struct NodeList {
 	Node *node;
 	NodeList *prev;
 	NodeList *next;
+
+	NodeList(): node(null), prev(null), next(null){}
 };
 
 struct Sym {

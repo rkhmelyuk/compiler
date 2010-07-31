@@ -86,6 +86,15 @@ NodeList* parse(char *string) {
 			nl->node = n;
 			writePos(n, s);
 			continue;
+		case ',':
+			n = new Node;
+			n->value = new char[2];
+			n->value[0] = c;
+			n->value[1] = 0;
+			n->nodeType = NODE_TYPE_COMMA;
+			nl->node = n;
+			writePos(n, s);
+			continue;
 		case '=':
 			n = new Node;
 			if (getc(s) == '=') {
@@ -228,6 +237,27 @@ NodeList* parse(char *string) {
 				} while (c);
 			}
 			continue;
+		case '"':
+			int pos = s->pos + 1;
+			do {
+				c = getc(s);
+				if (c == '\n') {
+					lexerError(s, "Multi line strings are not supported.");
+					break;
+				}
+				else if (c == '"') {
+					// end of string
+					n = new Node;
+					int num = s->pos - pos;
+					n->value = (char*) malloc(sizeof(char) * num + 1);
+					strncpy(n->value, s->string + sizeof(char) * pos - 1, num);
+					n->nodeType = NODE_TYPE_STRING;
+					nl->node = n;
+					writePos(n, s);
+					break;
+				}
+			} while (c);
+			continue;
 		}
 
 		if (isdigit(c)) {
@@ -263,8 +293,8 @@ NodeList* parse(char *string) {
 			if (strcmp(n->value, "def") == 0) {
 				n->nodeType = NODE_TYPE_DEF;
 			}
-			else if (strcmp(n->value, "calculate") == 0) {
-				n->nodeType = NODE_TYPE_CALC;
+			else if (strcmp(n->value, "print") == 0) {
+				n->nodeType = NODE_TYPE_PRINT;
 			}
 			else if (strcmp(n->value, "if") == 0) {
 				n->nodeType = NODE_TYPE_IF;
@@ -274,6 +304,18 @@ NodeList* parse(char *string) {
 			}
 			else if (strcmp(n->value, "else") == 0) {
 				n->nodeType = NODE_TYPE_ELSE;
+			}
+			else if (strcmp(n->value, "while") == 0) {
+				n->nodeType = NODE_TYPE_WHILE;
+			}
+			else if (strcmp(n->value, "break") == 0) {
+				n->nodeType = NODE_TYPE_BREAK;
+			}
+			else if (strcmp(n->value, "continue") == 0) {
+				n->nodeType = NODE_TYPE_CONTINUE;
+			}
+			else if (strcmp(n->value, "func") == 0) {
+				n->nodeType = NODE_TYPE_FUNC;
 			}
 			else {
 				n->nodeType = NODE_TYPE_IDENTIFIER;
@@ -286,7 +328,6 @@ NodeList* parse(char *string) {
 			break;
 		}
 		else {
-			printf("%c", c);
 			lexerError(s, "Unexpected symbol.");
 		}
 	}

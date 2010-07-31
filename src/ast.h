@@ -23,13 +23,19 @@ enum AstNodeType {
 	SUB,
 	DIV,
 	DEF,
-	CALC,
+	PRINT,
 	IDENT,
 	NUMBER,
 	MUL,
 	IF,
 	THEN,
-	ELSE
+	ELSE,
+	WHILE,
+	BREAK,
+	CONTINUE,
+	FUNC,
+	FUNC_CALL,
+	STRING
 };
 
 struct AstNode {
