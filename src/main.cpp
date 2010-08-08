@@ -16,6 +16,7 @@
 #include "synparser.h"
 #include "interpretator.h"
 #include "vm.h"
+#include "vmcompile.h"
 
 using namespace std;
 
@@ -110,66 +111,39 @@ void printAstNode(AstNode *ast, int indent) {
 
 int main(int argc, char** argv) {
 
-
-	char* program = null;
-
-	if (argc == 2) {
-		char *fileName = argv[1];
-		ifstream file(fileName, ios::in);
-
-		file.seekg(0, ios::end);
-		uint32 size = 1 + file.tellg();
-		file.seekg(0, ios::beg);
-
-		program = new char[size];
-		file.read(program, size);
-
-		file.close();
+	if (argc != 2) {
+		printf("No file to compile.");
+		exit(1);
 	}
 
-	//printf("Lexical parser started\n");
+	char *fileName = argv[1];
+	ifstream file(fileName, ios::in);
+
+	file.seekg(0, ios::end);
+	uint32 size = 1 + file.tellg();
+	file.seekg(0, ios::beg);
+
+	char* program = new char[size];
+	file.read(program, size);
+
+	file.close();
+
 	NodeList *list = parse(program);
-	//
 
 	//printf("Syntatical parser started\n");
-	AstNode *ast = synparse(list);
+	AstNode *ast = synparse(fileName, list);
 
 	if (ast != null) {
-		ast = optimize(ast);
-		//printAstNode(ast, 0);
-		//interpretate(ast);
+		ast = semanticCheck(ast);
+		if (ast != null) {
+			ast = optimize(ast);
+			//printAstNode(ast, 0);
+			interpretate(ast);
+
+			//byte *instructions = compile(ast);
+			//execute(instructions);
+		}
 	}
-
-	byte instructions[100];
-	memset(instructions, 0, 100);
-
-	int i = 0;
-	instructions[i++] = VMI_MOV;
-	instructions[i++] = R01;
-	instructions[i++] = 0;
-	instructions[i++] = 0;
-	instructions[i++] = 0;
-	instructions[i++] = 255;
-	instructions[i++] = VMI_MOV;
-	instructions[i++] = R02;
-	instructions[i++] = 0;
-	instructions[i++] = 0;
-	instructions[i++] = 0;
-	instructions[i++] = 255;
-	instructions[i++] = VMI_ADD;
-	instructions[i++] = R01;
-	instructions[i++] = R02;
-	instructions[i++] = VMI_STW;
-	instructions[i++] = R01;
-	instructions[i++] = 0;
-	instructions[i++] = VMI_LDW;
-	instructions[i++] = R06;
-	instructions[i++] = 0;
-	instructions[i++] = VMI_PRN;
-	instructions[i++] = R06;
-	instructions[i++] = VMI_HALT;
-
-	execute(instructions);
 
 	printf("\n\nFinished!\n");
 }

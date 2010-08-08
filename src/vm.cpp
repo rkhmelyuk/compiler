@@ -14,8 +14,7 @@ static int reg[15];
 static byte memory[1024];
 
 void execute(byte instructions[]) {
-	//memory = malloc(1024); // 1kb
-	memset(memory, 0, 1000);
+	memset(memory, 0, 1024);
 
 	int i = 0;
 	do {

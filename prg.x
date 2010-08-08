@@ -1,3 +1,7 @@
+
+@"mod.x";
+
+
 def a = 11+0;
 def x = 0+a;
 
@@ -19,8 +23,9 @@ if (1==2) then {
 	add(10, 20);
 }
 else {
-	#printHi();
+	printHi();
 	printNum(10);
+	printNum(20);
 }  
 
 #* 
