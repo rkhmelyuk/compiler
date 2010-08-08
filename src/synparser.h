@@ -16,23 +16,6 @@
 
 #define SYNTAX_ERROR 65
 
-using namespace std;
-
-enum ObjectType {
-	VARIABLE,
-	FUNCTION
-};
-
-struct DefObject {
-	char *name;
-	ObjectType type;
-};
-
-struct DefContext {
-	char *name;
-	list<DefObject*> *objects;
-};
-
-extern AstNode* synparse(NodeList *nodes);
+extern AstNode* synparse(char *filename, NodeList *nodes);
 
 #endif /* SYNPARSER_H_ */

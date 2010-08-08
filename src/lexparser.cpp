@@ -178,6 +178,15 @@ NodeList* parse(char *string) {
 			nl->node = n;
 			writePos(n, s);
 			continue;
+		case '@':
+			n = new Node;
+			n->value = new char[2];
+			n->value[0] = c;
+			n->value[1] = 0;
+			n->nodeType = NODE_TYPE_AMPERSAT;
+			nl->node = n;
+			writePos(n, s);
+			continue;
 		case '(':
 			n = new Node;
 			n->value = new char[2];

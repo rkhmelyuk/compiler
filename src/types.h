@@ -8,6 +8,8 @@
 #ifndef TYPES_H_
 #define TYPES_H_
 
+#include <stddef.h>
+
 #define null NULL
 
 typedef unsigned short	uint16;
@@ -18,3 +20,4 @@ typedef signed short 		int16;
 typedef unsigned char 	byte;
 
 #endif /* TYPES_H_ */
+

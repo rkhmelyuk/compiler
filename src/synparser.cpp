@@ -5,7 +5,6 @@
  *      Author: Ruslan Khmelyuk
  */
 
-#include <list>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +14,7 @@
 
 using namespace std;
 
+AstNode* import();
 AstNode* func();
 AstNode* funcArgs();
 AstNode* funcCall();
@@ -34,38 +34,31 @@ AstNode* term();
 AstNode* factor();
 
 void stabilize();
-void pushDefContext(char* name);
-void popDefContext();
-bool addDefObject(Node *currentNode, DefObject *object);
-DefObject* getDefObject(Node *currentNode, char *name, int type);
 AstNode* parseNodes();
 
 static bool hasError;
-static list<DefContext*> *contexts;
+
 static NodeList *nodes;
+static char *filename;
 
 void syntaxError(Node *node, char *error) {
-	printf("Syntax error: %s at position [%d, %d]\n",
-			error, node->position->row, node->position->column);
+	printf("Syntax error: %s in %s at position [%d, %d]\n",
+			error, filename, node->position->row, node->position->column);
 	hasError = true;
 }
 
 void unexpected(Node *node) {
-	printf("Syntax error: unexpected '%s' at position [%d, %d]\n",
-			node->value, node->position->row, node->position->column);
+	printf("Syntax error: unexpected '%s' in %s at position [%d, %d]\n",
+			node->value, filename, node->position->row, node->position->column);
 	hasError = true;
 }
 
-AstNode* synparse(NodeList *nodeList) {
+AstNode* synparse(char* file, NodeList *nodeList) {
 	hasError = false;
-
-	contexts = new list<DefContext*>();
-
+	filename = file;
 	nodes = nodeList;
 
 	AstNode *ast = parseNodes();
-
-	delete contexts;
 
     if (hasError) {
 		printf("COMPILATION FAILED!\n");
@@ -77,14 +70,14 @@ AstNode* synparse(NodeList *nodeList) {
 
 AstNode* parseNodes() {
 
-	pushDefContext("global");
-
-	AstNode *astNodeList = new AstNode; // points to the begin
+	AstNode *astNodeList = new AstNode(filename, nodes->node);
 	astNodeList->left = astNodeList->right = null;
 	astNodeList->value = null;
 
 	AstNode *astNode = astNodeList;
 	astNode->type = SEQUENCE;
+
+	bool importDone = false;
 
     while (nodes != null && nodes->node != null) {
     	if (nodes->node->nodeType == NODE_TYPE_EOF) {
@@ -93,49 +86,43 @@ AstNode* parseNodes() {
 
     	astNode->left = statement();
 
+    	if (astNode->left != null && astNode->left->type != IMPORT) {
+			importDone = true;
+    	}
+    	else if (importDone) {
+    		syntaxError(nodes->node, "Import is not allowed at this place");
+    	}
+
 		if (nodes != NULL) {
 			nodes = nodes->next;
 		}
 
 		// next AST node
 		if (astNode->left != null) {
-			astNode->right = new AstNode;
+			astNode->right = new AstNode(filename, nodes->node);
 			astNode = astNode->right;
 			astNode->type = SEQUENCE;
 		}
 	}
 
-    popDefContext();
-
     return astNodeList;
-}
-
-void pushDefContext(char* name) {
-	DefContext *context = new DefContext;
-	context->objects = new list<DefObject*>;
-	context->name = name;
-	contexts->push_back(context);
-}
-
-void popDefContext() {
-	DefContext *context = contexts->back();
-	contexts->pop_back();
-
-	delete context->objects;
-	delete context;
 }
 
 AstNode* statement() {
 	AstNode* ast = null;
 
 	switch (nodes->node->nodeType) {
+		case NODE_TYPE_AMPERSAT:
+			nodes = nodes->next;
+			ast = import();
+			break;
 		case NODE_TYPE_DEF:
 			nodes = nodes->next;
 			ast = definition();
 			break;
 		case NODE_TYPE_PRINT:
 			nodes = nodes->next;
-			ast= print();
+			ast = print();
 			break;
 		case NODE_TYPE_FUNC:
 			nodes = nodes->next;
@@ -188,9 +175,7 @@ AstNode* statements() {
 		unexpected(nodes->node);
 	}
 
-	pushDefContext("$$");
-
-	AstNode *astNodeList = new AstNode; // points to the begin
+	AstNode *astNodeList = new AstNode(filename, nodes->node);
 	astNodeList->left = astNodeList->right = null;
 	astNodeList->value = null;
 
@@ -209,21 +194,23 @@ AstNode* statements() {
 
     	astNode->left = statement();
 
+    	if (astNode->left != null && astNode->left->type == IMPORT) {
+			syntaxError(nodes->node, "Import is not allowed at this place");
+		}
+
 		if (nodes != NULL) {
 			nodes = nodes->next;
 		}
 
 		// next AST node
 		if (astNode->left != null) {
-			astNode->right = new AstNode;
+			astNode->right = new AstNode(filename, nodes->node);
 			astNode = astNode->right;
 			astNode->type = SEQUENCE;
 		}
 	}
 
     nodes = nodes->next;
-
-    popDefContext();
 
     return astNodeList;
 }
@@ -244,29 +231,46 @@ void stabilize() {
 	} while (nodes != NULL);
 }
 
+AstNode* import() {
+	AstNode *node = new AstNode(filename, nodes->node);
+	node->type = IMPORT;
+	node->value = nodes->node->value;
+
+	nodes = nodes->next;
+	if (nodes->node->nodeType != NODE_TYPE_SEMICOLON) {
+		syntaxError(nodes->node, "right parenthesis is absent");
+		stabilize();
+	}
+
+	return node;
+}
+
 AstNode* definition() {
-	AstNode *node = new AstNode;
+	AstNode *node = new AstNode(filename, nodes->node);
 	node->type = DEF;
 
 	if (nodes->node->nodeType == NODE_TYPE_IDENTIFIER) {
+
+		AstNode *left = new AstNode(filename, nodes->node);
+
 		DefObject *object = new DefObject;
 		object->name = nodes->node->value;
 		object->type = VARIABLE;
+		object->dataType = TYPE_INTEGER;
+
+		left->value = object;
+		left->type = IDENT;
+
+		node->left = left;
 
 		nodes = nodes->next;
-		if (addDefObject(nodes->node, object)) {
-			AstNode *left = new AstNode;
-			left->value = object->name;
-			left->type = IDENT;
-			node->left = left;
 
-			if (nodes->node->nodeType == NODE_TYPE_ASSIGN) {
-				nodes = nodes->next;
-				node->right = simpleTerm();
-			}
-			if (nodes->node->nodeType != NODE_TYPE_SEMICOLON) {
-				unexpected(nodes->node);
-			}
+		if (nodes->node->nodeType == NODE_TYPE_ASSIGN) {
+			nodes = nodes->next;
+			node->right = simpleTerm();
+		}
+		if (nodes->node->nodeType != NODE_TYPE_SEMICOLON) {
+			unexpected(nodes->node);
 		}
 	}
 	else {
@@ -277,48 +281,42 @@ AstNode* definition() {
 }
 
 AstNode* func() {
-	AstNode *node = new AstNode;
+	AstNode *node = new AstNode(filename, nodes->node);
 	node->type = FUNC;
 
 	if (nodes->node->nodeType == NODE_TYPE_IDENTIFIER) {
 		DefObject *object = new DefObject;
 		object->name = nodes->node->value;
 		object->type = FUNCTION;
+		object->dataType = TYPE_VOID;
 
-		node->value = object->name;
+		node->value = object;
 
-		if (addDefObject(nodes->node, object)) {
-
-			pushDefContext(object->name);
-
+		nodes = nodes->next;
+		if (nodes->node->nodeType == NODE_TYPE_LPAREN) {
 			nodes = nodes->next;
-			if (nodes->node->nodeType == NODE_TYPE_LPAREN) {
+
+			AstNode *left = new AstNode(filename, nodes->node);
+			left = funcArgs();
+			node->left = left;
+
+			if (nodes->node->nodeType == NODE_TYPE_RPAREN) {
 				nodes = nodes->next;
 
-				AstNode *left = new AstNode; // arguments
-				left = funcArgs();
-				node->left = left;
-
-				if (nodes->node->nodeType == NODE_TYPE_RPAREN) {
-					nodes = nodes->next;
-
-					if (nodes->node->nodeType == NODE_TYPE_LBRACE) {
-						// block
-						node->right = statements();
-						nodes = nodes->prev;
-					}
-				}
-				else {
-					syntaxError(nodes->node, "right parenthesis is absent");
-					stabilize();
+				if (nodes->node->nodeType == NODE_TYPE_LBRACE) {
+					// block
+					node->right = statements();
+					nodes = nodes->prev;
 				}
 			}
 			else {
-				syntaxError(nodes->node, "left parenthesis is absent");
+				syntaxError(nodes->node, "right parenthesis is absent");
 				stabilize();
 			}
-
-			popDefContext();
+		}
+		else {
+			syntaxError(nodes->node, "left parenthesis is absent");
+			stabilize();
 		}
 	}
 	else {
@@ -331,12 +329,12 @@ AstNode* func() {
 }
 
 AstNode* funcArgs() {
-	AstNode *begin= new AstNode;
+	AstNode *begin= new AstNode(filename, nodes->node);
 	begin->type = SEQUENCE;
 
 	AstNode *node = begin;
 	while (nodes->node->nodeType == NODE_TYPE_DEF) {
-		AstNode *defNode= new AstNode;
+		AstNode *defNode= new AstNode(filename, nodes->node);
 		defNode->type = DEF;
 
 		nodes = nodes->next;
@@ -344,12 +342,11 @@ AstNode* funcArgs() {
 			DefObject *object = new DefObject;
 			object->name = nodes->node->value;
 			object->type = VARIABLE;
+			object->dataType = TYPE_INTEGER;
 
-			addDefObject(nodes->node, object);
-
-			defNode->left = new AstNode;
+			defNode->left = new AstNode(filename, nodes->node);
 			defNode->left->type = IDENT;
-			defNode->left->value = object->name;
+			defNode->left->value = object;
 
 			nodes = nodes->next;
 			if (nodes->node->nodeType == NODE_TYPE_COMMA) {
@@ -362,7 +359,7 @@ AstNode* funcArgs() {
 		}
 
 		node->left = defNode;
-		node->right = new AstNode;
+		node->right = new AstNode(filename, nodes->node);
 		node = node->right;
 		node->type = SEQUENCE;
 	}
@@ -370,44 +367,40 @@ AstNode* funcArgs() {
 }
 
 AstNode* funcCall() {
-	DefObject *obj = getDefObject(nodes->node, nodes->node->value, FUNCTION);
-	if (obj != null) {
-		AstNode *node = new AstNode;
-		node->type = FUNC_CALL;
-		node->value = nodes->node->value;
+	AstNode *node = new AstNode(filename, nodes->node);
+	node->type = FUNC_CALL;
+	node->value = nodes->node->value;
 
+	nodes = nodes->next;
+	if (nodes->node->nodeType == NODE_TYPE_LPAREN) {
 		nodes = nodes->next;
-		if (nodes->node->nodeType == NODE_TYPE_LPAREN) {
+
+		AstNode *left = new AstNode(filename, nodes->node);
+		left = funcCallArgs();
+		node->left = left;
+
+		if (nodes->node->nodeType != NODE_TYPE_RPAREN) {
+			syntaxError(nodes->node, "right parenthesis is absent");
+			stabilize();
+		}
+		else {
 			nodes = nodes->next;
-
-			AstNode *left = new AstNode;
-			left = funcCallArgs();
-			node->left = left;
-
-			if (nodes->node->nodeType != NODE_TYPE_RPAREN) {
+			if (nodes->node->nodeType != NODE_TYPE_SEMICOLON) {
 				syntaxError(nodes->node, "right parenthesis is absent");
 				stabilize();
 			}
-			else {
-				nodes = nodes->next;
-				if (nodes->node->nodeType != NODE_TYPE_SEMICOLON) {
-					syntaxError(nodes->node, "right parenthesis is absent");
-					stabilize();
-				}
-			}
 		}
-		else {
-			syntaxError(nodes->node, "left parenthesis is absent");
-			stabilize();
-		}
-
-		return node;
 	}
-	return null;
+	else {
+		syntaxError(nodes->node, "left parenthesis is absent");
+		stabilize();
+	}
+
+	return node;
 }
 
 AstNode* funcCallArgs() {
-	AstNode *begin = new AstNode;
+	AstNode *begin = new AstNode(filename, nodes->node);
 	begin->type = SEQUENCE;
 
 	AstNode *node = begin;
@@ -428,7 +421,7 @@ AstNode* funcCallArgs() {
 			continue;
 		}
 
-		AstNode *argNode= new AstNode;
+		AstNode *argNode= new AstNode(filename, nodes->node);
 		argNode->type = type;
 		argNode->value = nodes->node->value;
 
@@ -438,7 +431,7 @@ AstNode* funcCallArgs() {
 		}
 
 		node->left = argNode;
-		node->right = new AstNode;
+		node->right = new AstNode(filename, nodes->node);
 		node = node->right;
 		node->type = SEQUENCE;
 	}
@@ -446,11 +439,11 @@ AstNode* funcCallArgs() {
 }
 
 AstNode* assignment() {
-	AstNode *left = new AstNode;
+	AstNode *left = new AstNode(filename, nodes->node);
 	left->value = nodes->node->value;
 	left->type = IDENT;
 
-	AstNode *node = new AstNode;
+	AstNode *node = new AstNode(filename, nodes->node);
 	node->type = ASSIGN;
 	node->left = left;
 
@@ -472,20 +465,20 @@ AstNode* assignment() {
 
 AstNode* ifThenElse() {
 
-	AstNode *node = new AstNode;
+	AstNode *node = new AstNode(filename, nodes->node);
 	node->type = IF;
 
 	if (nodes->node->nodeType == NODE_TYPE_LPAREN) {
 		nodes = nodes->next;
 
-		AstNode *left = new AstNode; // condition
+		AstNode *left = new AstNode(filename, nodes->node); // condition
 		left = comparison();
 		node->left = left;
 
 		if (nodes->node->nodeType == NODE_TYPE_RPAREN) {
 			nodes = nodes->next;
 			if (nodes->node->nodeType == NODE_TYPE_THEN) {
-				AstNode *right = new AstNode;
+				AstNode *right = new AstNode(filename, nodes->node);
 				right->type = THEN;
 				node->right = right;
 
@@ -531,13 +524,13 @@ AstNode* ifThenElse() {
 
 AstNode* whileLoop() {
 
-	AstNode *node = new AstNode;
+	AstNode *node = new AstNode(filename, nodes->node);
 	node->type = WHILE;
 
 	if (nodes->node->nodeType == NODE_TYPE_LPAREN) {
 		nodes = nodes->next;
 
-		AstNode *left = new AstNode; // condition
+		AstNode *left = new AstNode(filename, nodes->node); // condition
 		left = comparison();
 		node->left = left;
 
@@ -567,20 +560,19 @@ AstNode* whileLoop() {
 }
 
 AstNode* breakOp() {
-	AstNode* node = new AstNode;
+	AstNode* node = new AstNode(filename, nodes->node);
 	node->type = BREAK;
-	//nodes = nodes->next;
 	return node;
 }
 
 AstNode* continueOp() {
-	AstNode* node = new AstNode;
+	AstNode* node = new AstNode(filename, nodes->node);
 	node->type = CONTINUE;
 	return node;
 }
 
 AstNode* comparison() {
-	AstNode* node = new AstNode;
+	AstNode* node = new AstNode(filename, nodes->node);
 
 	node->left = simpleTerm();
 
@@ -614,53 +606,12 @@ AstNode* comparison() {
 	return node;
 }
 
-bool addDefObject(Node *currentNode, DefObject *object) {
-	DefContext* context = contexts->back();
-
-	for (list<DefObject*>::iterator iter = context->objects->begin(); iter != context->objects->end(); iter++) {
-		DefObject *obj = *iter;
-		if (object->type == obj->type && strcmp(object->name, obj->name) == 0) {
-			// object is already defined
-			if (object->type == FUNCTION) {
-				syntaxError(currentNode, "function with such name is already defined");
-			}
-			else if (object->type == VARIABLE) {
-				syntaxError(currentNode, "variable with such name is already defined");
-			}
-			return false;
-		}
-	}
-
-	context->objects->push_back(object);
-
-	return true;
-}
-
-DefObject* getDefObject(Node *currentNode, char *name, int type) {
-	for (list<DefContext*>::reverse_iterator citer = contexts->rbegin(); citer != contexts->rend(); ++citer) {
-		DefContext* context = *citer;
-		for (list<DefObject*>::iterator iter = context->objects->begin(); iter != context->objects->end(); iter++) {
-			DefObject *obj = *iter;
-			if (type == obj->type && strcmp(name, obj->name) == 0) {
-				// object is already defined
-				return obj;
-			}
-		}
-	}
-	if (type == FUNCTION) {
-		syntaxError(currentNode, "unknown function found '%s'");
-	}
-	else if (type == VARIABLE) {
-		syntaxError(currentNode, "unknown variable found '%s'");
-	}
-	return null;
-}
 
 AstNode* print() {
-	AstNode *node = new AstNode;
+	AstNode *node = new AstNode(filename, nodes->node);
 	node->type = PRINT;
 	if (nodes->node->nodeType == NODE_TYPE_STRING) {
-		node->left = new AstNode;
+		node->left = new AstNode(filename, nodes->node);
 		node->left->type = STRING;
 		node->left->value = nodes->node->value;
 		nodes = nodes->next;
@@ -682,12 +633,12 @@ AstNode* simpleTerm() {
 
 	if (nodes->node->nodeType == NODE_TYPE_PLUS) {
 		nodes = nodes->next;
-		node = new AstNode;
+		node = new AstNode(filename, nodes->node);
 		node->type = ADD;
 	}
 	else if (nodes->node->nodeType == NODE_TYPE_MINUS) {
 		nodes = nodes->next;
-		node = new AstNode;
+		node = new AstNode(filename, nodes->node);
 		node->type = SUB;
 	}
 
@@ -701,7 +652,7 @@ AstNode* simpleTerm() {
 
 	while (nodes->node->nodeType == NODE_TYPE_PLUS
 			|| nodes->node->nodeType == NODE_TYPE_MINUS) {
-		AstNode *cNode = new AstNode;
+		AstNode *cNode = new AstNode(filename, nodes->node);
 
 		if (nodes->node->nodeType == NODE_TYPE_PLUS) {
 			cNode->type = ADD;
@@ -724,7 +675,7 @@ AstNode* term() {
 
 	while (nodes->node->nodeType == NODE_TYPE_MUL
 			|| nodes->node->nodeType == NODE_TYPE_DIV) {
-		AstNode *cNode= new AstNode;
+		AstNode *cNode= new AstNode(filename, nodes->node);
 
 		if (nodes->node->nodeType == NODE_TYPE_MUL) {
 			cNode->type = MUL;
@@ -747,13 +698,13 @@ AstNode* factor() {
 	AstNode *node = null;
 
 	if (nodes->node->nodeType == NODE_TYPE_IDENTIFIER) {
-		node = new AstNode;
+		node = new AstNode(filename, nodes->node);
 		node->type = IDENT;
-		node->value = getDefObject(nodes->node, nodes->node->value, VARIABLE) -> name;
+		node->value = nodes->node->value;
 		nodes = nodes->next;
 	}
 	else if (nodes->node->nodeType == NODE_TYPE_NUMBER) {
-		node = new AstNode;
+		node = new AstNode(filename, nodes->node);
 		node->type = NUMBER;
 		node->value = nodes->node->value;
 		nodes = nodes->next;

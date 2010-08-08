@@ -12,6 +12,7 @@
 
 #include "interpretator.h"
 #include "synparser.h"
+#include "ast.h"
 
 using namespace std;
 
@@ -91,13 +92,15 @@ void defineVar(char* name, int value) {
 }
 
 void define(AstNode* ast) {
-	defineVar((char*) ast->left->value, calc(ast->right));
+	DefObject *object = (DefObject*) ast->left->value;
+	defineVar(object->name, calc(ast->right));
 }
 
 void defineFunc(AstNode* ast) {
 	FuncObject* func = new FuncObject;
 
-	func->name = (char*) ast->value;
+	DefObject *object = (DefObject*) ast->value;
+	func->name = object->name;
 	func->value = ast;
 	funcs.push_back(func);
 }
@@ -121,7 +124,8 @@ void callFunc(AstNode* ast) {
 	AstNode* node = func->value->left;
 	AstNode* valNode = ast->left;
 	while (node != null && node->left != null && valNode != null && valNode->left != null) {
-		defineVar((char*) node->left->left->value, calc(valNode->left));
+		DefObject *object = (DefObject*) node->left->left->value;
+		defineVar(object->name, calc(valNode->left));
 
 		node = node->right;
 		valNode = valNode->right;
